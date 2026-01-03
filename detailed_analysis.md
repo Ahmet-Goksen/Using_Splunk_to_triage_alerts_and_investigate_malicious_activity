@@ -33,6 +33,8 @@ For each incident, I followed a methodical process to identify key indicators of
     ```
     *   **Finding:** `500 failed login attempts` occurred within a 5-minute window, followed by `3 successful accepted password` events from the same IP. This is a definitive indicator of a successful brute-force attack.
 
+![Splunk events](screenshots/Number-of-login-events-john.smith-2.png)
+
 3.  **Visualisation & Further Investigation:** Using a pre-built query, I visualised all authentication activity from the suspicious IP to confirm the target user.
     *   **Privilege Escalation:** Searching activity by `john.smith` post-compromise revealed the attacker abused `sudo` to escalate privileges to `root`.
         ```splunk
