@@ -84,14 +84,16 @@ For each incident, I followed a methodical process to identify key indicators of
     ```
     A single, clearly malicious log was returned. The task was configured to execute daily, running a PowerShell command that used `certutil.exe` to download (`rv.exe`) and execute (`DataCollector.exe`) a payload from `http://tryhotme:9876`.
 
-2.  **Process Ancestry:** Using the parent process ID from the log, I traced the task creation to `C:\Windows\system32\cmd.exe` run by user `WIN-H015\oliver.thompson`.
+![Splunk events](screenshots/Persistance.png)
 
-3.  **Attacker Reconnaissance:** I discovered the attacker enumerated the local "Administrators" group, likely to map privileged accounts for lateral movement.
+3.  **Process Ancestry:** Using the parent process ID from the log, I traced the task creation to `C:\Windows\system32\cmd.exe` run by user `WIN-H015\oliver.thompson`.
+
+4.  **Attacker Reconnaissance:** I discovered the attacker enumerated the local "Administrators" group, likely to map privileged accounts for lateral movement.
     ```splunk
     index="win-alert" "Group" Account_Name="oliver.thompson"
     ```
 
-4.  **Source Identification:** By checking successful logon events (Event ID 4624) on the target host, I identified the initial access point.
+5.  **Source Identification:** By checking successful logon events (Event ID 4624) on the target host, I identified the initial access point.
     ```splunk
     index="win-alert" host="WIN-H015" EventCode=4624
     ```
