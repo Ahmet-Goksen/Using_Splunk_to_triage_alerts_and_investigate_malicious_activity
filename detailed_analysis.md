@@ -25,6 +25,8 @@ For each incident, I followed a methodical process to identify key indicators of
     ```
     The results showed an anomalous volume of `Failed password` and `Accepted password` events for the user `john.smith`.
 
+![Splunk events](screenshots/Number-of-login-events-john.smith.png)
+
 2.  **Quantifying the Attack:** I isolated attempts against `john.smith` to quantify the attack.
     ```splunk
     index="linux-alert" action=failure OR action=success user_name="john.smith" src_ip="10.10.242.248"
