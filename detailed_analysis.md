@@ -154,6 +154,8 @@ For each incident, I followed a methodical process to identify key indicators of
 
 4.  **Web Shell Activity Isolation:** A final query specifically detailed the web shell execution, showing the initial access GET request and subsequent command execution POST requests.
 
+![Splunk events](screenshots/b374k.php-web-shell-activity.png)
+
 ### MITRE ATT&CK Summary for Alert #3
 *   **TA0003: Persistence**
     *   **T1505.003 - Server Software Component:** Uploaded the `b374k.php` web shell.
