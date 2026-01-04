@@ -101,6 +101,8 @@ For each incident, I followed a methodical process to identify key indicators of
     ```
     **Finding:** The attacker initially accessed `WIN-H015` from the workstation `DEV-QA-SERVER`.
 
+![Splunk events](screenshots/Initial-access-of-WIN-H015.png)
+
 ### MITRE ATT&CK Summary for Alert #2
 *   **TA0003: Persistence**
     *   **T1053.005 - Scheduled Task:** Created malicious task `AssessmentTaskOne`.
