@@ -140,6 +140,8 @@ For each incident, I followed a methodical process to identify key indicators of
     ```
     The attacker accessed the shell via the WordPress theme editor (`/wp-admin/theme-editor.php?file=b374k.php`) and issued commands through `/wp-admin/admin-ajax.php`.
 
+![Splunk events](screenshots/Web-Log-Analysis.png)
+
 3.  **Attack Timeline Reconstruction:** A broader query visualised all activity from the malicious IP, sorting by time.
     ```splunk
     index=web-alert 171.251.232.40
