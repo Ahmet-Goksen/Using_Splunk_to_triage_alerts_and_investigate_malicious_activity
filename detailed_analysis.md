@@ -142,7 +142,7 @@ For each incident, I followed a methodical process to identify key indicators of
 
 ![Splunk events](screenshots/Web-Log-Analysis.png)
 
-3.  **Attack Timeline Reconstruction:** A broader query visualised all activity from the malicious IP, sorting by time.
+3.  **Hydra Brute force Activity:** A broader query visualised all activity from the malicious IP, sorting by time.
     ```splunk
     index=web-alert 171.251.232.40
     | table _time clientip useragent uri_path method status
