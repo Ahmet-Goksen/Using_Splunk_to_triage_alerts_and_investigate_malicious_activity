@@ -130,7 +130,9 @@ For each incident, I followed a methodical process to identify key indicators of
 **Tools & Technologies Used:** Splunk, AbuseIPDB, VirusTotal
 
 ### Methodology & Findings
-1.  **Threat Intelligence Enrichment:** I first queried external platforms (AbuseIPDB, VirusTotal) for the suspicious IP (`171.251.232.40`). It was confirmed malicious with over 12,500 community reports, instantly raising the alert's priority.
+1.  **Threat Intelligence Enrichment:** I first queried external platforms (AbuseIPDB, VirusTotal) for the suspicious IP (`171.251.232.40`). It was confirmed malicious with over 12,500 community reports, instantly raising the alert's priority.Utilising- AbuseIPD.png
+
+![Splunk events](screenshots/Utilising-AbuseIPD.png)
 
 2.  **Web Log Analysis:** Filtering web server (`access.log`) traffic from the malicious IP revealed active interaction with a known PHP web shell (`b374k.php`).
     ```splunk
