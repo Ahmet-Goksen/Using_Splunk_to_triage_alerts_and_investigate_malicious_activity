@@ -150,6 +150,8 @@ For each incident, I followed a methodical process to identify key indicators of
     ```
     **Finding:** The attack began earlier with a brute-force attempt against `/wp-login.php` using the tool `Hydra` (visible in the User-Agent string), which started at `2025-09-14 21:20:27`.
 
+![Splunk events](screenshots/Hydra-Brute-Force-Activity.png)
+
 4.  **Web Shell Activity Isolation:** A final query specifically detailed the web shell execution, showing the initial access GET request and subsequent command execution POST requests.
 
 ### MITRE ATT&CK Summary for Alert #3
