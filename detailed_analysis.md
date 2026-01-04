@@ -93,6 +93,8 @@ For each incident, I followed a methodical process to identify key indicators of
     index="win-alert" "Group" Account_Name="oliver.thompson"
     ```
 
+![Splunk events](screenshots/Local-Group-Enumuration.png)
+
 5.  **Source Identification:** By checking successful logon events (Event ID 4624) on the target host, I identified the initial access point.
     ```splunk
     index="win-alert" host="WIN-H015" EventCode=4624
